@@ -1,0 +1,14 @@
+FROM steamcmd/steamcmd:latest
+
+RUN apt-get update && \
+	apt-get install -y libsdl2-2.0-0:i386 git gcc g++ make curl libssl-dev zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/valheim
+ENV HOME="/home/valheim"
+ENV PATH=$HOME/.rbenv/bin:$PATH
+
+COPY entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT  ["/bin/bash", "/home/valheim/entrypoint.sh"]

@@ -1,0 +1,29 @@
+version: "3"
+services:
+  valheim:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      SERVER_PORT: 2456
+      SERVER_NAME: My Server
+      SERVER_WORLD: My World
+      # Password must be > 5 characters
+      # Leave empty for unpassworded servers
+      SERVER_PASSWORD: secret
+      # Optional Discord bot integration
+      # https://discord.com/developers/applications
+      # https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID_HERE&scope=bot
+      VALHEIM_BOT_TOKEN:
+      VALHEIM_BOT_CHANNEL_ID:
+      VALHEIM_BOT_ADMIN_ROLE_ID:
+    ports:
+      - "2456:2456/udp"
+      - "2457:2457/udp"
+      - "2458:2458/udp"
+    volumes:
+      - ./volumes/steam:/home/valheim/.steam:z
+      - ./volumes/saves:/home/valheim/.config/unity3d/IronGate/Valheim:z
+      - ./volumes/server:/home/valheim/valheim:z
+      - ./volumes/rbenv:/home/valheim/.rbenv:z
+      - ./valheim-bot:/home/valheim/valheim-bot:z

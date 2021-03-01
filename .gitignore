@@ -1,0 +1,16 @@
+# Ignore everything
+*
+# Except these
+!README.md
+!docker-compose.yml
+!Dockerfile
+!entrypoint.sh
+!.gitignore
+!.gitkeep
+!valheim-bot/**
+# Even if nested
+!*/
+
+# Ignore cloned git files
+volumes/rbenv/.gitignore
+volumes/rbenv/README.md
