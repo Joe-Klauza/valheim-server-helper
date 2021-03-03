@@ -134,14 +134,14 @@ end
 
 $bot.command :update_bot, description: 'Update valheim-bot to the latest available version on GitHub. This will only overwrite files in the valheim-bot directory.', required_roles: [$owner_role_id] do |event|
     log_command_event(event)
-    send_to_channel("<@#{event.user.id}> (#{event.user.name}) is updating valheim-server-helper...")
+    send_to_channel("<@#{event.user.id}> (#{event.user.name}) is updating the bot...")
     begin
         version = SelfUpdater.update_to_latest(only_files_in_dir: 'valheim-bot')
         respond(event, "Update to #{version} succeeded! :tada:\nReview the latest patch notes here: <https://github.com/Joe-Klauza/valheim-server-helper/releases/tag/#{version}>")
-        respond(event, ":notebook_with_decorative_cover: **Note:** Please `#{$bot.prefix}restart_bot` to apply bot changes. Other changes may require rebuilding the container.")
+        respond(event, ":notebook_with_decorative_cover: **Note:** Please `#{$bot.prefix}restart_bot` to apply bot changes. Other changes (such as those to docker-compose.yml, entrypoint.sh) must be downloaded and applied manually.")
     rescue => e
         $logger.error(e)
-        respond(event, "Failed to update valheim-server-helper: (#{e.class}) #{e.message}")
+        respond(event, "Failed to update the bot: (#{e.class}) #{e.message}")
     end
     nil
 rescue => e
