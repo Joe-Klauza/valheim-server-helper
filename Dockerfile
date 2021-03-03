@@ -11,4 +11,4 @@ ENV PATH=$HOME/.rbenv/bin:$PATH
 COPY entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 
-ENTRYPOINT  ["/bin/bash", "/home/valheim/entrypoint.sh"]
+ENTRYPOINT  ["/home/valheim/entrypoint.sh"]

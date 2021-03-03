@@ -24,7 +24,7 @@ The server is run via `docker-compose`. Several volumes store SteamCMD, `rbenv`,
       docker-compose down
       ```
 
-# Setting up the Valheim Discord bot
+# Setting up the optional Valheim Discord bot
 1. Create a new Application for your Discord account [here](https://discord.com/developers/applications)
 1. Create a Bot for your application and copy its secret token, pasting it in the `docker-compose.override.yaml`:
     - ```yaml
@@ -39,15 +39,25 @@ The server is run via `docker-compose`. Several volumes store SteamCMD, `rbenv`,
     - ```yaml
       VALHEIM_BOT_CHANNEL_ID: 000000000000000000
       ```
-1. Create or designate an existing role for sensitive commands (`/restart`, `/restart_bot`). Copy its ID into `docker-compose.override.yaml`:
+1. Create or designate an existing role for sensitive commands (`!restart`, `!restart_bot`). Copy its ID into `docker-compose.override.yaml`:
     - ```yaml
       VALHEIM_BOT_ADMIN_ROLE_ID: 000000000000000000
       ```
+1. Create or designate an existing role for even more sensitive commands (`!update_bot`). Copy its ID into `docker-compose.override.yaml`:
+    - ```yaml
+      VALHEIM_BOT_OWNER_ROLE_ID: 000000000000000000
+      ```
+1. If desired, change the bot command prefix character:
+    - ```yaml
+      VALHEIM_BOT_COMMAND_PREFIX: '!'
+      ```
+1. Once the container starts, your bot should show as online and be available for commands.
 
 # Valheim Discord bot commands
-- `help`
-  - Print command list
-- `info`
+By default the bot prefix character is `!`.
+- `!help`
+  - Print command list or get help with a specific command
+- `!info`
   - Print server info including name, current player count, type, OS, and version
   - Example:
     ```
@@ -57,15 +67,54 @@ The server is run via `docker-compose`. Several volumes store SteamCMD, `rbenv`,
     OS: Linux
     Version: 0.146.11
     ```
-- `players`
+- `!players`
   - Print active players. Player names are currently not reported by the server.
   - Example:
     ```
     • Unknown - 00:00:28
     ```
-- `restart`
+- `!restart`
   - Restart the Valheim server gracefully (via `SIGINT`). Status messages are printed to the designated channel as the server restarts. Server updates are applied during this process.
-- `restart_bot`
+- `!restart_bot`
   - Restart the Discord bot to apply new source code changes without Valheim server downtime
-- `status`
+- `!status`
   - Query whether the server is running (i.e. process still exists via `pgrep`)
+- `!update_bot`
+  - Download the latest release from this repository and overwrite the contents of the valheim-bot directory with the latest bot files. Requires `!restart_bot` to apply bot source code changes. Note that this does not update the rest of the repository. (TODO: update script)
+
+# Advanced usage
+
+## Running multiple servers
+With multiple compose files it's simple to run multiple containers on different port ranges.
+
+### Caveats
+- The server files, save location, etc. are on shared mounts between all servers.
+  - You must make sure each server has a unique `SERVER_WORLD` to avoid conflicts on causing missing items or progress as servers save their state.
+  - You must only update one server at a time (as SteamCMD would conflict with itself if run via multiple containers simultaneously)
+    - Subsequent servers' updates will see the updated files and simply validate them
+  - Admins and bans must be shared across servers
+    - There is no guarantee bans will persist properly when running multiple servers, depending on when the server writes the bans file. (TODO: test this)
+
+### Example
+
+1. Copy `docker-compose.yml` to another file, e.g. `docker-compose-new.yml`
+1. Edit `docker-compose-new.yml` to utilize different ports. It is unknown whether changing the internal ports is required (`SERVER_PORT` and latter port in the `ports` entries), but it doesn't hurt:
+    - ```yaml
+          environment:
+            SERVER_PORT: 12456
+          ports:
+            - "12456:12456/udp"
+            - "12457:12457/udp"
+            - "12458:12458/udp"
+      ```
+1. Run your new server using a separate docker-compose project (`-p`) and the configured compose file (`-f`) for compartmentalization:
+    - ```bash
+      docker-compose -p new -f docker-compose-new.yml up -d
+      ```
+1. Use the project name and compose file when interacting with that container, e.g. to stop the server:
+    - ```bash
+      docker-compose -p new -f docker-compose-new.yml down
+      ```
+
+# Contact
+For discussion, troubleshooting, etc., join us over on the unofficial [Valheim Community Server Hosts Discord](https://discord.gg/wEX7N96WcG)!

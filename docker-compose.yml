@@ -5,8 +5,12 @@ services:
       context: .
       dockerfile: ./Dockerfile
     environment:
+      # Default port is 2456
+      # If port is changed, change ports below to match
+      # SERVER_PORT, SERVER_PORT+1, SERVER_PORT+2
       SERVER_PORT: 2456
       SERVER_NAME: My Server
+      # The below value corresponds to the name of the save file to generate or load
       SERVER_WORLD: My World
       # Password must be > 5 characters
       # Leave empty for unpassworded servers
@@ -15,8 +19,14 @@ services:
       # https://discord.com/developers/applications
       # https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID_HERE&scope=bot
       VALHEIM_BOT_TOKEN:
+      # The below channel is used for logging admin actions (e.g. when someone restarts the server)
       VALHEIM_BOT_CHANNEL_ID:
+      # Those with the below role can restart the server and the bot via the bot
       VALHEIM_BOT_ADMIN_ROLE_ID:
+      # Those with the below role can update valheim-server-helper via the bot
+      VALHEIM_BOT_OWNER_ROLE_ID:
+      # The below character is used as the prefix for commands in Discord
+      VALHEIM_BOT_COMMAND_PREFIX: '!'
     ports:
       - "2456:2456/udp"
       - "2457:2457/udp"

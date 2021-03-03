@@ -9,3 +9,5 @@ git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 gem "discordrb", "~> 3.4"
 
 gem "pry", "~> 0.14.0"
+
+gem "rubyzip", "~> 2.3"

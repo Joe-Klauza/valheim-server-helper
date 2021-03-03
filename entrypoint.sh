@@ -4,6 +4,19 @@ function log {
   echo "$(date '+%F %T.%6N') | $@"
 }
 
+function cleanup {
+  log "Cleaning up subprocesses with SIGINT"
+  # Specifically send SIGINT to Ruby as it's a granchild process
+  pkill -2 ruby
+  # Send SIGINT to all direct descendants (steamcmd, valheim_server)
+  pkill -2 $$
+  log "Waiting for subprocesses to exit"
+  wait
+  log "Graceful exit succeeded!"
+  exit 0
+}
+trap cleanup INT TERM
+
 if ! [ -n "$SERVER_NAME" ] ||
    ! [ -n "$SERVER_PORT" ] ||
    ! [ -n "$SERVER_WORLD" ]; then
@@ -33,13 +46,19 @@ if [ -n "$VALHEIM_BOT_TOKEN" ]; then
     log "Installing Ruby and required gems for Valheim Bot"
     rbenv install --skip-existing
     rbenv exec gem install bundler
-    rbenv exec bundle install
-    ### Start a thread that will relaunch the bot if it fails sporadically
+    ### Start a thread that will relaunch the bot if it fails sporadically or is restarted via command to apply updates
     while true; do
+      rbenv exec bundle install
       log "Starting Valheim Bot"
       ~/.rbenv/bin/rbenv exec bundle exec ruby valheim-bot.rb
+      export VSH_LAST_EXIT_CODE=$?
       log "Valheim Bot Stopped"
-      sleep 5
+      if [[ $VSH_LAST_EXIT_CODE -eq 43 ]]; then
+        break # Container is stopping; bail out
+      elif [[ $VSH_LAST_EXIT_CODE -ne 42 ]]; then
+        log "Restarting in 5 seconds"
+        sleep 5
+      fi
     done &
   popd
 else
@@ -52,7 +71,8 @@ cd "$install_dir"
 
 while true; do
   log "Downloading Valheim server to $install_dir"
-  steamcmd +login anonymous +force_install_dir "$install_dir" +app_update 896660 validate +quit
+  steamcmd +login anonymous +force_install_dir "$install_dir" +app_update 896660 validate +quit &
+  wait $!
 
   log "Copying 64-bit steamclient.so"
   cp linux64/steamclient.so .
@@ -63,7 +83,8 @@ while true; do
     -port "$SERVER_PORT" \
     -world "$SERVER_WORLD" \
     -password "$SERVER_PASSWORD" \
-    -public 1
+    -public 1 & # We need this in the background in order for signals (SIGINT) to arrive
+  wait $!
 
   log "Valheim server stopped. Checking for updates in 5 seconds."
   sleep 5
