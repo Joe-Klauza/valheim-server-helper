@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function log {
-  echo "$(date '+%F %T.%6N') | $@"
+  echo "$(date '+%F %T.%6N') | $*"
 }
 
 function cleanup {
@@ -17,28 +17,43 @@ function cleanup {
 }
 trap cleanup INT TERM
 
-if ! [ -n "$SERVER_NAME" ] ||
-   ! [ -n "$SERVER_PORT" ] ||
-   ! [ -n "$SERVER_WORLD" ]; then
-  log "Required variable is unset:"
-  log "SERVER_NAME: $SERVER_NAME"
-  log "SERVER_PORT: $SERVER_PORT"
-  log "SERVER_WORLD: $SERVER_WORLD"
+function fail {
+  log "ERROR: $*"
   exit 1
+}
+
+function install_rbenv {
+  pushd ~/.rbenv || fail "Failed to pushd to ~/.rbenv"
+    git init
+    git remote add origin https://github.com/rbenv/rbenv.git
+    git fetch
+    # Force checkout (emulate clone)
+    git checkout -f origin/master
+    # Get ruby-build plug-in so we can install desired Ruby version
+    mkdir -p ~/.rbenv/plugins
+    git clone https://github.com/rbenv/ruby-build.git ~/.rbenv/plugins/ruby-build
+    src/configure
+    make -C src
+  popd || fail "Failed to popd"
+}
+
+if  [ -z "$SERVER_NAME" ] ||
+    [ -z "$SERVER_PORT" ] ||
+    [ -z "$SERVER_WORLD" ]; then
+  fail "Required variable is unset:
+    SERVER_NAME: $SERVER_NAME
+    SERVER_PORT: $SERVER_PORT
+    SERVER_WORLD: $SERVER_WORLD"
 fi
 
 if [ -n "$VALHEIM_BOT_TOKEN" ]; then
-  pushd valheim-bot
+  pushd valheim-bot || fail "Failed to pushd to valheim-bot"
     if ! command -v rbenv; then
       ### rbenv with ruby-build plugin
       log "Installing rbenv and ruby-build to mounted volume for Valheim Bot"
-      git clone https://github.com/rbenv/rbenv.git ~/.rbenv
-      mkdir -p "$(rbenv root)"/plugins
-      git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
-      pushd ~/.rbenv
-        src/configure
-        make -C src
-      popd
+      # Can't clone since the directory already exists due to the mount
+      install_rbenv
+      command -v rbenv || fail "ERROR: Failed to install rbenv"
     else
       log "rbenv detected in mounted volume; skipping install"
     fi
@@ -60,14 +75,14 @@ if [ -n "$VALHEIM_BOT_TOKEN" ]; then
         sleep 5
       fi
     done &
-  popd
+  popd || fail "Failed to popd"
 else
   log "VALHEIM_BOT_TOKEN unset; skipping bot startup"
 fi
 
 install_dir=/home/valheim/valheim
 mkdir -p "$install_dir"
-cd "$install_dir"
+cd "$install_dir" || fail "Failed to cd to install dir: $install_dir"
 
 while true; do
   log "Downloading Valheim server to $install_dir"
