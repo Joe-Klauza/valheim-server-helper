@@ -24,6 +24,7 @@ function fail {
 
 function install_rbenv {
   pushd ~/.rbenv || fail "Failed to pushd to ~/.rbenv"
+    git config --global --add safe.directory '*'
     git init
     git remote add origin https://github.com/rbenv/rbenv.git
     git fetch
@@ -59,7 +60,7 @@ if [ -n "$VALHEIM_BOT_TOKEN" ]; then
     fi
     ### ruby and gems (cached in rbenv volume)
     log "Installing Ruby and required gems for Valheim Bot"
-    rbenv install --skip-existing
+    rbenv install --skip-existing --verbose
     rbenv exec gem install bundler
     ### Start a thread that will relaunch the bot if it fails sporadically or is restarted via command to apply updates
     while true; do
@@ -74,7 +75,7 @@ if [ -n "$VALHEIM_BOT_TOKEN" ]; then
         log "Restarting in 5 seconds"
         sleep 5
       fi
-    done &
+    done & # Send this to a background thread so we can proceed to start the server
   popd || fail "Failed to popd"
 else
   log "VALHEIM_BOT_TOKEN unset; skipping bot startup"
@@ -86,11 +87,12 @@ cd "$install_dir" || fail "Failed to cd to install dir: $install_dir"
 
 while true; do
   log "Downloading Valheim server to $install_dir"
-  steamcmd +login anonymous +force_install_dir "$install_dir" +app_update 896660 validate +quit &
+  steamcmd +force_install_dir "$install_dir" +login anonymous +app_update 896660 validate +quit &
   wait $!
 
   log "Copying 64-bit steamclient.so"
-  cp linux64/steamclient.so .
+  mkdir -p /home/valheim/.steam/sdk64/
+  cp linux64/steamclient.so /home/valheim/.steam/sdk64/steamclient.so
 
   log "Starting Valheim server"
   ./valheim_server.x86_64 \

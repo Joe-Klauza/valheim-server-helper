@@ -13,6 +13,7 @@ Dir.chdir __dir__
 
 bot_token = ENV['VALHEIM_BOT_TOKEN'] || abort('VALHEIM_BOT_TOKEN is undefined')
 $valheim_channel_id = ENV['VALHEIM_BOT_CHANNEL_ID'] || abort('VALHEIM_BOT_CHANNEL_ID is undefined')
+$valheim_admin_channel_id = ENV['VALHEIM_BOT_ADMIN_CHANNEL_ID'] || abort('VALHEIM_BOT_ADMIN_CHANNEL_ID is undefined')
 $admin_role_id = ENV['VALHEIM_BOT_ADMIN_ROLE_ID'] || abort('VALHEIM_BOT_ADMIN_ROLE_ID is undefined')
 $owner_role_id = ENV['VALHEIM_BOT_OWNER_ROLE_ID'] || abort('VALHEIM_BOT_OWNER_ROLE_ID is undefined')
 players = []
@@ -25,13 +26,18 @@ def send_to_channel(message)
     $bot.channel($valheim_channel_id).send(message)
 end
 
-def respond(event, message)
-    $bot.channel($valheim_channel_id).send message
-    event.respond(message) unless event.channel.id.to_s == $valheim_channel_id
+def send_to_admin_channel(message)
+    $bot.channel($valheim_admin_channel_id).send(message)
+end
+
+def respond_in_channel(event, message)
+    $bot.channel($valheim_channel_id).send(message)
+    event.send_message(content: message) unless event.channel.id.to_s == $valheim_channel_id
 end
 
 def log_command_event(event)
-    $logger.info("#{event.user.name} (#{event.user.id}) triggered command #{event.command}")
+    $logger.info("#{event.user.name}##{event.user.discriminator} (#{event.user.id}) triggered command #{event.command_name} -> #{event.subcommand}")
+    send_to_admin_channel("<@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) triggered command `#{event.command_name} -> #{event.subcommand}`")
 end
 
 def system_no_out(command)
@@ -62,23 +68,67 @@ def wait_server_up = wait_command_success(PGREP)
 def wait_server_down = wait_command_failure(PGREP)
 def interrupt_server = system_no_out(PKILL_INT)
 
-$bot = Discordrb::Commands::CommandBot.new(token: bot_token, prefix: ENV['VALHEIM_BOT_COMMAND_PREFIX'] || '!')
+def user_is_admin?(user)
+    unless user.respond_to?(:roles)
+        user = $bot.channel($valheim_channel_id).server.users.select { |u| u.id == user.id }.first
+        return false unless user.roles
+    end
+    if user.roles.include?($bot.channel($valheim_channel_id).server.roles.find { |r| r.id == 558498982519767051 })
+        return true
+    end
+    false
+end
+    
+def command(cmd, subcmd)
+    $bot.application_command(cmd).subcommand(subcmd) do |event|
+        event.defer
+        log_command_event(event)
+        yield event
+    rescue => e
+        $logger.error(e)
+        event.send_message(content: "(#{e.class}) #{e.message}")
+    end
+end
 
-$bot.command :info, description: 'Print server information' do |event|
-    log_command_event(event)
+def admin_command(cmd, subcmd)
+    $bot.application_command(cmd).subcommand(subcmd) do |event|
+        event.defer
+        log_command_event(event)
+        unless user_is_admin?(event.user)
+            send_to_admin_channel(":warning: Non-admin user <@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) was denied trying to trigger admin command `#{event.command_name} -> #{event.subcommand}`")
+            next event.send_message(content: 'You are not an admin! :newspaper2:')
+        end
+        yield event
+    rescue => e
+        $logger.error(e)
+        event.send_message(content: "(#{e.class}) #{e.message}")
+    end
+end
+
+$bot = Discordrb::Commands::CommandBot.new(token: bot_token, prefix: ENV['VALHEIM_BOT_COMMAND_PREFIX'] || '!', intents: [:server_messages, :server_members])
+
+$bot.register_application_command(:valheim, 'Valheim Bot commands') do |cmd|
+    cmd.subcommand(:info, 'Print server information')
+    cmd.subcommand(:players, 'Print server players')
+    cmd.subcommand(:restart_bot, 'Restart the bot (apply changes from update) (Admin only)')
+    cmd.subcommand(:restart, 'Restart the server (and apply updates) (Admin only)')
+    cmd.subcommand(:status, 'Check if server is online')
+    # cmd.subcommand(:update_bot, 'Update valheim-bot to the latest available version on GitHub. (Admin only)')
+end
+
+command(:valheim, :info) do |event|
+    next event.send_message(content: 'No server info is currently known.') if info.empty?
     response = ['Server info:', '```']
     info.each do |k, v|
         response.push("#{k.to_s.capitalize.gsub('_', ' ').sub(/^Os$/, 'OS')}: #{v.to_s}")
     end
     response.push('```')
-    response.join("\n")
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
+    event.send_message(content: response.join("\n"))
 end
 
-$bot.command :players, description: 'Print server players' do |event|
-    log_command_event(event)
+command(:valheim, :players) do |event|
+    next event.send_message(content: 'No server info is currently known.') if info.empty?
+    next event.send_message(content: 'No players are online.') if info.empty?
     current = info[:current_players] ? " (#{info[:current_players]})" : ''
     response = ["Server players#{current}:", '```']
     players.each do |p|
@@ -86,68 +136,48 @@ $bot.command :players, description: 'Print server players' do |event|
         response.push("  • #{name} - #{p[:duration].to_s}")
     end
     response.push('```')
-    response.join("\n")
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
+    event.send_message(content: response.join("\n"))
 end
 
-$bot.command :restart, description: 'Restart the server (and apply updates)', required_roles: [$admin_role_id] do |event|
-    log_command_event(event)
-    send_to_channel("<@#{event.user.id}> (#{event.user.name}) is restarting the server...")
+admin_command(:valheim, :restart) do |event|
+    send_to_channel("<@#{event.user.id}> is restarting the server...")
     outcome = "Server #{interrupt_server ?
         'interrupt successfully sent. Waiting for server to gracefully exit...' :
         '`pkill` command failed! Is the server running?'}"
-    respond(event, outcome)
+    respond_in_channel(event, outcome)
 
     outcome = "Server #{wait_server_down() ?
         'stopped successfully. Any pending updates will apply and the server will restart. This channel will receive a notification when the server is online.' :
         'Failed to detect server stopping. Is it stuck?'}"
-    respond(event, outcome)
+    respond_in_channel(event, outcome)
 
     outcome = wait_server_up() ? "Server is back up!" : "Failed to detect server within the time limit."
-    respond(event, outcome)
-    nil
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
+    respond_in_channel(event, outcome)
+    event.send_message(content: "Server restart complete!")
 end
 
-$bot.command :restart_bot, description: 'Restart the bot (apply changes from update)', required_roles: [$admin_role_id] do |event|
-    log_command_event(event)
+admin_command(:valheim, :restart_bot) do |event|
     send_to_channel("<@#{event.user.id}> (#{event.user.name}) is restarting me...")
+    event.send_message(content: "Exiting!")
     exit 42
-    nil
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
 end
 
-$bot.command :status, description: 'Check if server is online' do |event|
-    log_command_event(event)
-    event.respond system_no_out(PGREP) ? "Server is online!" : "Server is offline!"
-    nil
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
+command(:valheim, :status) do |event|
+    message = system_no_out(PGREP) ? "Server is online!" : "Server is offline!"
+    event.send_message(content: message)
 end
 
-$bot.command :update_bot, description: 'Update valheim-bot to the latest available version on GitHub. This will only overwrite files in the valheim-bot directory.', required_roles: [$owner_role_id] do |event|
-    log_command_event(event)
-    send_to_channel("<@#{event.user.id}> (#{event.user.name}) is updating the bot...")
-    begin
-        version = SelfUpdater.update_to_latest(only_files_in_dir: 'valheim-bot')
-        respond(event, "Update to #{version} succeeded! :tada:\nReview the latest patch notes here: <https://github.com/Joe-Klauza/valheim-server-helper/releases/tag/#{version}>")
-        respond(event, ":notebook_with_decorative_cover: **Note:** Please `#{$bot.prefix}restart_bot` to apply bot changes. Other changes (such as those to docker-compose.yml, entrypoint.sh) must be downloaded and applied manually.")
-    rescue => e
-        $logger.error(e)
-        respond(event, "Failed to update the bot: (#{e.class}) #{e.message}")
-    end
-    nil
-rescue => e
-    $logger.error(e)
-    "(#{e.class}) #{e.message}"
-end
+# admin_command(:valheim, :update_bot) do |event|
+#     send_to_channel("<@#{event.user.id}> (#{event.user.name}) is updating the bot...")
+#     begin
+#         version = SelfUpdater.update_to_latest(only_files_in_dir: 'valheim-bot')
+#         respond_in_channel(event, "Update to #{version} succeeded! :tada:\nReview the latest patch notes here: <https://github.com/Joe-Klauza/valheim-server-helper/releases/tag/#{version}>")
+#         respond_in_channel(event, ":notebook_with_decorative_cover: **Note:** Please `#{$bot.prefix}restart_bot` to apply bot changes. Other changes (such as those to docker-compose.yml, entrypoint.sh) must be downloaded and applied manually.")
+#     rescue => e
+#         $logger.error(e)
+#         respond_in_channel(event, "Failed to update the bot: (#{e.class}) #{e.message}")
+#     end
+# end
 
 begin
     Thread.new do
