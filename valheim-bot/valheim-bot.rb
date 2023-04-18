@@ -73,12 +73,12 @@ def user_is_admin?(user)
         user = $bot.channel($valheim_channel_id).server.users.select { |u| u.id == user.id }.first
         return false unless user.roles
     end
-    if user.roles.include?($bot.channel($valheim_channel_id).server.roles.find { |r| r.id == 558498982519767051 })
+    if user.roles.include?($bot.channel($valheim_channel_id).server.roles.find { |r| r.id == $admin_role_id })
         return true
     end
     false
 end
-    
+
 def command(cmd, subcmd)
     $bot.application_command(cmd).subcommand(subcmd) do |event|
         event.defer

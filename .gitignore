@@ -14,3 +14,6 @@
 # Ignore cloned git files
 volumes/rbenv/.gitignore
 volumes/rbenv/README.md
+
+# Ignore nested docker
+volumes/server/docker
