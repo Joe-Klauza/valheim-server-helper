@@ -19,7 +19,9 @@ services:
       # https://discord.com/developers/applications
       # https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID_HERE&scope=bot
       VALHEIM_BOT_TOKEN:
-      # The below channel is used for logging admin actions (e.g. when someone restarts the server)
+      # The below channel is used for logging all actions for admin review/auditing
+      VALHEIM_BOT_ADMIN_CHANNEL_ID:
+      # The below channel is used for logging public actions (e.g. when someone restarts the server)
       VALHEIM_BOT_CHANNEL_ID:
       # Those with the below role can restart the server and the bot via the bot
       VALHEIM_BOT_ADMIN_ROLE_ID:

@@ -2,12 +2,6 @@
 
 source "https://rubygems.org"
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
-
-# gem "rails"
-
-gem "discordrb", "~> 3.4"
-
-gem "pry", "~> 0.14.0"
-
+gem 'discordrb', git: 'https://github.com/shardlab/discordrb.git', ref: '2011ac63da2c5dde1ff3bea06e1b471325128575'
+gem "pry", "~> 0.14.2"
 gem "rubyzip", "~> 2.3"
