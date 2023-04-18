@@ -14,8 +14,8 @@ Dir.chdir __dir__
 bot_token = ENV['VALHEIM_BOT_TOKEN'] || abort('VALHEIM_BOT_TOKEN is undefined')
 $valheim_channel_id = ENV['VALHEIM_BOT_CHANNEL_ID'] || abort('VALHEIM_BOT_CHANNEL_ID is undefined')
 $valheim_admin_channel_id = ENV['VALHEIM_BOT_ADMIN_CHANNEL_ID'] || abort('VALHEIM_BOT_ADMIN_CHANNEL_ID is undefined')
-$admin_role_id = ENV['VALHEIM_BOT_ADMIN_ROLE_ID'] || abort('VALHEIM_BOT_ADMIN_ROLE_ID is undefined')
-$owner_role_id = ENV['VALHEIM_BOT_OWNER_ROLE_ID'] || abort('VALHEIM_BOT_OWNER_ROLE_ID is undefined')
+$admin_role_id = (ENV['VALHEIM_BOT_ADMIN_ROLE_ID'] || abort('VALHEIM_BOT_ADMIN_ROLE_ID is undefined')).to_i
+$owner_role_id = (ENV['VALHEIM_BOT_OWNER_ROLE_ID'] || abort('VALHEIM_BOT_OWNER_ROLE_ID is undefined')).to_i
 players = []
 info = {}
 
@@ -157,7 +157,7 @@ admin_command(:valheim, :restart) do |event|
 end
 
 admin_command(:valheim, :restart_bot) do |event|
-    send_to_channel("<@#{event.user.id}> (#{event.user.name}) is restarting me...")
+    send_to_channel("<@#{event.user.id}> is restarting me...")
     event.send_message(content: "Exiting!")
     exit 42
 end
