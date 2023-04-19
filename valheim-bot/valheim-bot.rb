@@ -86,7 +86,7 @@ def command(cmd, subcmd)
         yield event
     rescue => e
         $logger.error(e)
-        event.send_message(content: "(#{e.class}) #{e.message}")
+        event.send_message(content: "Error (#{e.class}): Contact the maintainer.")
     end
 end
 
@@ -101,7 +101,7 @@ def admin_command(cmd, subcmd)
         yield event
     rescue => e
         $logger.error(e)
-        event.send_message(content: "(#{e.class}) #{e.message}")
+        event.send_message(content: "Error (#{e.class}): Contact the maintainer.")
     end
 end
 
@@ -175,7 +175,7 @@ end
 #         respond_in_channel(event, ":notebook_with_decorative_cover: **Note:** Please `#{$bot.prefix}restart_bot` to apply bot changes. Other changes (such as those to docker-compose.yml, entrypoint.sh) must be downloaded and applied manually.")
 #     rescue => e
 #         $logger.error(e)
-#         respond_in_channel(event, "Failed to update the bot: (#{e.class}) #{e.message}")
+#         respond_in_channel(event, "Failed to update the bot: (#{e.class})")
 #     end
 # end
 
