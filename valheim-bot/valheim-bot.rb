@@ -190,6 +190,7 @@ begin
                 port = ENV['SERVER_PORT'].to_i + 1
                 info = ServerQuery::a2s_info(ip, port) || info
                 players = ServerQuery::a2s_player(ip, port) || players
+                $bot.update_status(nil, ": #{info[:current_players] || '?'}", nil)
                 sleep 10
             rescue => e
                 $logger.warn(e)
