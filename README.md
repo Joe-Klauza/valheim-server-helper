@@ -47,40 +47,48 @@ The server is run via `docker-compose`. Several volumes store SteamCMD, `rbenv`,
     - ```yaml
       VALHEIM_BOT_OWNER_ROLE_ID: 000000000000000000
       ```
-1. If desired, change the bot command prefix character:
+1. If desired, install optional mods to enable RCON command support via the bot (primarily for ban/kick/save commands)
+    - Required mods:
+      - <https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/>
+      - <https://valheim.thunderstore.io/package/AviiNL/rcon/>
+      - <https://www.nexusmods.com/valheim/mods/1965>
+    - Install and configure the mods as directed
+    - **IMPORTANT NOTE:** With these mods, the password is not required even when set, so do not expose the RCON port beyond the container/host!
     - ```yaml
-      VALHEIM_BOT_COMMAND_PREFIX: '!'
+      VALHEIM_BOT_RCON_PORT: 12345
       ```
 1. Once the container starts, your bot should show as online and be available for commands.
 
 # Valheim Discord bot commands
-By default the bot prefix character is `!`.
-- `!help`
-  - Print command list or get help with a specific command
-- `!info`
-  - Print server info including name, current player count, type, OS, and version
-  - Example:
-    ```
-    Name: Test
-    Current players: 1
-    Type: Dedicated
-    OS: Linux
-    Version: 0.146.11
-    ```
-- `!players`
-  - Print active players. Player names are currently not reported by the server.
-  - Example:
-    ```
-    • Unknown - 00:00:28
-    ```
-- `!restart`
-  - Restart the Valheim server gracefully (via `SIGINT`). Status messages are printed to the designated channel as the server restarts. Server updates are applied during this process.
-- `!restart_bot`
-  - Restart the Discord bot to apply new source code changes without Valheim server downtime
-- `!status`
-  - Query whether the server is running (i.e. process still exists via `pgrep`)
-- `!update_bot`
-  - Download the latest release from this repository and overwrite the contents of the valheim-bot directory with the latest bot files. Requires `!restart_bot` to apply bot source code changes. Note that this does not update the rest of the repository. (TODO: update script)
+
+Commands are registered as integrated slash commands.
+
+- Public comamnds:
+  - `/valheim info`
+    - Print server info including name, current player count, type, OS, and version
+    - Example:
+      ```
+      Name: Test
+      Current players: 1
+      Type: Dedicated
+      OS: Linux
+      Version: 0.146.11
+      ```
+  - `/valheim players`
+    - Print active players. Player names are currently not reported by the server.
+    - Example:
+      ```
+      • Unknown - 00:00:28
+      ```
+  - `/valheim status`
+    - Query whether the server is running (i.e. process still exists via `pgrep`)
+- Admin commands:
+  - `/valheim rcon [command]`
+    - Run the given RCON command; primarily useful for `ban`, `kick`, and `save` commands
+  - `/valheim restart`
+    - Restart the Valheim server gracefully (via `SIGINT`). Status messages are printed to the designated channel as the server restarts. Server updates are applied during this process.
+  - `/valheim restart_bot`
+    - Restart the Discord bot to apply new source code changes without Valheim server downtime
 
 # Advanced usage
 

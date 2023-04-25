@@ -27,8 +27,13 @@ services:
       VALHEIM_BOT_ADMIN_ROLE_ID:
       # Those with the below role can update valheim-server-helper via the bot
       VALHEIM_BOT_OWNER_ROLE_ID:
-      # The below character is used as the prefix for commands in Discord
-      VALHEIM_BOT_COMMAND_PREFIX: '!'
+      # Optional RCON support via manually-installed mods:
+      # https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/
+      # https://valheim.thunderstore.io/package/AviiNL/rcon/
+      # https://www.nexusmods.com/valheim/mods/1965
+      # IMPORTANT NOTE: With these mods, the password is not required even when set,
+      # so do not expose the RCON port to the world!
+      # VALHEIM_BOT_RCON_PORT:
     ports:
       - "2456:2456/udp"
       - "2457:2457/udp"

@@ -81,6 +81,15 @@ else
   log "VALHEIM_BOT_TOKEN unset; skipping bot startup"
 fi
 
+if [ -n "$VALHEIM_BOT_RCON_PORT" ] then
+  # BepInEx https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/
+  export DOORSTOP_ENABLE=TRUE
+  export DOORSTOP_INVOKE_DLL_PATH=./BepInEx/core/BepInEx.Preloader.dll
+  export DOORSTOP_CORLIB_OVERRIDE_PATH=./unstripped_corlib
+  export LD_LIBRARY_PATH="./doorstop_libs:$LD_LIBRARY_PATH"
+  export LD_PRELOAD="libdoorstop_x64.so:$LD_PRELOAD"
+fi
+
 install_dir=/home/valheim/valheim
 mkdir -p "$install_dir"
 cd "$install_dir" || fail "Failed to cd to install dir: $install_dir"

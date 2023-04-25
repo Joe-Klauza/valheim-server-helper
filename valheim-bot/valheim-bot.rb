@@ -4,6 +4,7 @@
 require 'discordrb'
 require 'pry'
 require_relative 'lib/logger'
+require_relative 'lib/rcon-client'
 require_relative 'lib/self-updater'
 require_relative 'lib/server-query'
 
@@ -16,6 +17,9 @@ $valheim_channel_id = ENV['VALHEIM_BOT_CHANNEL_ID'] || abort('VALHEIM_BOT_CHANNE
 $valheim_admin_channel_id = ENV['VALHEIM_BOT_ADMIN_CHANNEL_ID'] || abort('VALHEIM_BOT_ADMIN_CHANNEL_ID is undefined')
 $admin_role_id = (ENV['VALHEIM_BOT_ADMIN_ROLE_ID'] || abort('VALHEIM_BOT_ADMIN_ROLE_ID is undefined')).to_i
 $owner_role_id = (ENV['VALHEIM_BOT_OWNER_ROLE_ID'] || abort('VALHEIM_BOT_OWNER_ROLE_ID is undefined')).to_i
+$rcon_port = ENV['VALHEIM_BOT_RCON_PORT'].to_i
+$rcon_client = RconClient.new
+$has_rcon_mods = !$rcon_port.zero?
 players = []
 info = {}
 
@@ -37,7 +41,7 @@ end
 
 def log_command_event(event)
     $logger.info("#{event.user.name}##{event.user.discriminator} (#{event.user.id}) triggered command #{event.command_name} -> #{event.subcommand}")
-    send_to_admin_channel("<@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) triggered command `#{event.command_name} -> #{event.subcommand}`")
+    send_to_admin_channel("<@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) triggered command `/#{event.command_name} #{event.subcommand}#{' ' + event.options.map { |k,v| "#{k}: #{v}" }.join(' ') unless event.options.empty?}`")
 end
 
 def system_no_out(command)
@@ -95,7 +99,7 @@ def admin_command(cmd, subcmd)
         event.defer
         log_command_event(event)
         unless user_is_admin?(event.user)
-            send_to_admin_channel(":warning: Non-admin user <@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) was denied trying to trigger admin command `#{event.command_name} -> #{event.subcommand}`")
+            send_to_admin_channel(":warning: Non-admin user <@#{event.user.id}> (`#{event.user.name}##{event.user.discriminator}`) was denied trying to trigger admin command `/#{event.command_name} #{event.subcommand}#{' ' + event.options.map { |k,v| "#{k}: #{v}" }.join(' ') unless event.options.empty?}`")
             next event.send_message(content: 'You are not an admin! :newspaper2:')
         end
         yield event
@@ -105,11 +109,31 @@ def admin_command(cmd, subcmd)
     end
 end
 
+def split_message(message, limit: 1900)
+    messages = []
+    while message && message.length >= limit
+        messages << message[0..(limit - 1)]
+        message = message[limit..-1]
+    end
+    messages << message unless message.nil? || message.empty?
+    if messages.first.include?('```') && messages.length > 1
+        messages.first << "\n```"
+        messages[1..-2].each { |m| m.prepend("```\n") << "\n```" } if messages.length > 2
+        messages.last.prepend  "```\n"
+    end
+    messages
+end
+
 $bot = Discordrb::Commands::CommandBot.new(token: bot_token, prefix: ENV['VALHEIM_BOT_COMMAND_PREFIX'] || '!', intents: [:server_messages, :server_members])
 
 $bot.register_application_command(:valheim, 'Valheim Bot commands') do |cmd|
     cmd.subcommand(:info, 'Print server information')
     cmd.subcommand(:players, 'Print server players')
+    if $has_rcon_mods
+        cmd.subcommand(:rcon, 'Send RCON commands to the server (Admin only)') do |subcmd|
+            subcmd.string('command', 'RCON command to send', required: true)
+        end
+    end
     cmd.subcommand(:restart_bot, 'Restart the bot (apply changes from update) (Admin only)')
     cmd.subcommand(:restart, 'Restart the server (and apply updates) (Admin only)')
     cmd.subcommand(:status, 'Check if server is online')
@@ -139,6 +163,26 @@ command(:valheim, :players) do |event|
     event.send_message(content: response.join("\n"))
 end
 
+if $has_rcon_mods
+    admin_command(:valheim, :rcon) do |event|
+        command = event.options['command']
+        event.edit_response(content: "Sending `#{command}`...")
+        response = $rcon_client.send('127.0.0.1', $rcon_port, nil, command).strip
+        if response.empty?
+            send_to_admin_channel("No response.")
+            event.channel.send_message("No response.")
+        else
+            response = "```\n#{response}\n```"
+            event.edit_response(content: "Receiving response!")
+            split_message(response).each do |m|
+                send_to_admin_channel(m)
+                event.send_message(content: m, ephemeral: true)
+            end
+        end
+        event.edit_response(content: "Done with command: `#{command}`")
+    end
+end
+
 admin_command(:valheim, :restart) do |event|
     send_to_channel("<@#{event.user.id}> is restarting the server...")
     outcome = "Server #{interrupt_server ?
@@ -157,7 +201,7 @@ admin_command(:valheim, :restart) do |event|
 end
 
 admin_command(:valheim, :restart_bot) do |event|
-    send_to_channel("<@#{event.user.id}> is restarting me...")
+    send_to_admin_channel("<@#{event.user.id}> is restarting me...")
     event.send_message(content: "Exiting!")
     exit 42
 end
@@ -180,6 +224,9 @@ end
 # end
 
 begin
+    $logger.info('Starting Valheim Bot now')
+    $bot.run(true) # Daemonize (thread)
+    $bot.online
     Thread.new do
         # Allow server to start
         $logger.info('Server monitor waiting for server to start')
@@ -197,9 +244,6 @@ begin
             end
         end
     end
-    $logger.info('Starting Valheim Bot now')
-    $bot.run(true) # Daemonize (thread)
-    $bot.online
     $logger.info('Valheim Bot started')
     at_exit do
         $logger.info('Stopping Valheim Bot')
@@ -208,7 +252,7 @@ begin
         $logger.info('Valheim Bot stopped')
     end
     if ENV['VSH_LAST_EXIT_CODE'] == '42'
-        send_to_channel("I'm back! :wave:")
+        send_to_admin_channel("I'm back! :wave:")
     end
     sleep
 rescue SignalException => e

@@ -42,6 +42,7 @@ GEM
     unf (0.1.4)
       unf_ext
     unf_ext (0.0.8.2)
+    unicode-display_width (2.4.2)
     websocket (1.2.9)
     websocket-client-simple (0.6.1)
       event_emitter
@@ -54,6 +55,7 @@ DEPENDENCIES
   discordrb!
   pry (~> 0.14.2)
   rubyzip (~> 2.3)
+  unicode-display_width (~> 2.4)
 
 BUNDLED WITH
    2.4.12
